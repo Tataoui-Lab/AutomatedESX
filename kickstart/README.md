@@ -1,6 +1,4 @@
 ### ESXi Kickstart Script
-### Hostname: NA
-### Author: Dominic Chan
 ### Date: 2020-10-17
 ### Tested Patform Version: ESXi 6.7U3 and ESXi 7.0
 ### ESX Installation Use Case - Boot Menu Option 1
