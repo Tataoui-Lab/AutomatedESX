@@ -1,7 +1,7 @@
 ﻿#
 # Author: Dominic Chan (dominic.chan@tataoui.com)
 # Date: 2021-01-11
-# Last Update: 2021-01-20
+# Last Update: 2021-01-22
 #
 # Description: Auto creation of custom VMware ESX installer
 # The installer incorporate the standard kickstart configuration to automate and streamline ESX install while also
@@ -48,6 +48,7 @@ if ($DataSource -eq 'S') {
     $HostIP = '192.168.10.50'
     $HostSubnet = '255.255.255.0'
     $HostGW = '192.168.10.2'
+    $HostMgmtVLAN = '1'
     $ESXHostname = 'esxtemp.tataoui.com'
     $HostDNS1 = '192.168.30.2'
     $HostDNS2 = '192.168.30.3'
@@ -85,7 +86,6 @@ $remember_pathToISOFiles, $remember_esxiISOFile, $mediaFormat = $null
 $KS_Template = "$ScriptPath\KS_Template.cfg"
 $KickStartFolderName = 'KS'
 $isolinuxTempFile = $pathToISOFiles+'\isolinuxTemp.cfg'
-$ISOFilename = "dominic"
 
 # Determine ESX ISO files/folder location
 if (-not $remember_pathToISOFiles) {
@@ -123,7 +123,7 @@ if (-not $remember_esxiISOFile) {
     Write-Host -ForegroundColor Red "[ok] esxi ISO file already choosed"
 }
 
-My-Logger "Mounting ISO - $esxiIsoFile ..."
+My-Logger "Mounting ESX ISO - $esxiIsoFile ..."
 try {Mount-DiskImage -ImagePath $esxiIsoFile -StorageType ISO -Access ReadOnly -ErrorAction Stop} catch {$_.exception;break}
 
 $mountedISO = Get-Volume | ? { $_.DriveType -eq "CD-ROM" -and $_.OperationalStatus -eq "OK" -and $_.DriveLetter }
@@ -138,7 +138,7 @@ if (Test-Path $copyDestination) {
 My-Logger "Copying files from ISO to staging folder - $copyDestination ..."
 Copy-Item (Get-PSDrive $mountedISO.DriveLetter).root -Recurse -Destination $copyDestination -Force
 
-My-Logger "Dismount-DiskImage - $esxiIsoFile ..."
+My-Logger "Dismount ESX ISO - $esxiIsoFile ..."
 Dismount-DiskImage -ImagePath $esxiIsoFile
 
 My-Logger "Remove 'Read Only' attribute to ESX source files ..."
@@ -147,13 +147,14 @@ Get-ChildItem $copyDestination -Recurse | Set-ItemProperty -Name isReadOnly -Val
 My-Logger "Create Kickstart folder - '$KickStartFolderName' ..."
 New-Item -Path $copyDestination -Name $KickStartFolderName -ItemType "directory"
 
-My-Logger "Prepare Custom Kickstart configuration per hosts - ks#.cfg ..."
+My-Logger "Prepare Custom Kickstart configuration per hosts - 'ks#.cfg' ..."
 for ($esxi=0; $esxi -lt $ESXHostsParameters.Count; $esxi++ ) {
     $HostPW = $ESXHostsParameters.HostPW[$esxi]
     $DriveHW = $ESXHostsParameters.DriveHW[$esxi]
     $HostIP = $ESXHostsParameters.HostIP[$esxi]
     $HostSubnet = $ESXHostsParameters.HostSubnet[$esxi]
     $HostGW = $ESXHostsParameters.HostGW[$esxi]
+    $HostMgmtVLAN = $ESXHostsParameters.HostMgmtVLAN[$esxi]
     $ESXHostname = $ESXHostsParameters.ESXHostname[$esxi]
     $HostDNS1 = $ESXHostsParameters.HostDNS1[$esxi]
     $HostDNS2 = $ESXHostsParameters.HostDNS2[$esxi]
@@ -221,6 +222,7 @@ Set-Content $bootFile -Value $newBootFileContent -Force
 Set-Content $bootFileEFI -Value $newBootFileContent -Force
 
 My-Logger "Preparing ISO parameters ..."
+$ISOFilename = "CustomESXInstaller-"+$($esxiisofile.Name).Substring(25,23)
 $isoSourceFiles = "/mnt/" + $copyDestination.Replace("\", "/").replace(":", "")
 # e.g. $isoSourceFiles = "/mnt/d/iso/tmp/ESXI-6.7.0-20181002001-STANDARD"
 $isoDestinationFile = $ISOFilename + ".iso"
@@ -230,15 +232,14 @@ $rCommand = "genisoimage -relaxed-filenames -J -R -o $isoDestinationFilePath -b 
 # $rCommand = "mkisofs -relaxed-filenames -J -R -o $isoDestinationFilePath -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -b efiboot.img -no-emul-boot $isoSourceFiles"
 # -eltorito-platform efi 
 
-My-Logger "Create ISO image on Ubuntu with WSL ..."
+My-Logger "Create custom ESX ISO image on Ubuntu with WSL ..."
 wsl bash -c $rCommand
 # Option to copy to existing datastore
 # wsl bash -c "scp $isoDestinationFilePath root@192.168.2.20:/vmfs/volumes/datastore1"
 
-My-Logger "Clean up and deleting folder - $copyDestination ..."
-Remove-Item $isolinuxTempFile
-Remove-Item $copyDestination -Recurse -Force
+My-Logger "Clean up and deleting working area - $copyDestination ..."
+#Remove-Item $isolinuxTempFile
+#Remove-Item $copyDestination -Recurse -Force
 
-My-Logger "Final Kickstart ISO place at - $pathToISOFiles\tmp\$isoDestinationFile ..."
+My-Logger "Final customer ESX installer ISO place at - $pathToISOFiles\tmp\$isoDestinationFile ..."
 Invoke-Item $pathToISOFiles\tmp\
-break
