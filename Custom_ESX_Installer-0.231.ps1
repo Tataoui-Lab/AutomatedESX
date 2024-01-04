@@ -1,7 +1,7 @@
 #
 # Author: Dominic Chan (dominic.chan@tataoui.com)
 # Date: 2021-01-11
-# Last Update: 2022-02-12
+# Last Update: 2024-01-04
 #
 # Description: Auto creation of custom VMware ESX installer
 # The installer incorporate the standard kickstart configuration to automate and streamline ESX install while also
@@ -13,11 +13,13 @@
 # 
 # - tested on ESX6.7
 # - tested on ESX7.0
+# - tested on ESX8.0
 #
 # Powershell environment prerequisites:
 # 1. Windows 10 version 2004 (Build 19041) or higher
 # 2. PowerShell version: 5.1.14393.3866
 # 3. WSL 2
+#    - Reboot required afterward
 # 4. Ubuntu 20.04 LTS
 #    a. genisoimage installation require - 'sudo apt-get install genisoimage -y'
 # 5. ImportExcel: 7.1.0
@@ -225,7 +227,7 @@ Copy-Item $isolinuxTempFile -Destination $copyDestination\isolinux.cfg -Force
 
 My-Logger "Update title to boot.cfg and efi-boot.cfg ..."
 $bootFileTitle = Get-Content $bootFile | Select-String "title"
-$bootFileKernelOpt = Get-Content $bootFile  | Select-String "kernelopt=runweasel cdromBoot"
+$bootFileKernelOpt = Get-Content $bootFile  | Select-String "kernelopt"
 $time = (Get-Date -f "HHmmss")
 
 $newBootFileContent = (Get-Content $bootFile).Replace($bootFileTitle, "title=Loading Automated kickstart ESXi installer - $time").Replace($bootFileKernelOpt, "kernelopt=runweasel cdromBoot allowLegacyCPU=true")
