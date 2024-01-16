@@ -24,9 +24,10 @@ $verboseLogFile = "VMware Holodeck Deployment.log"
 # Customer lab environment variables - Must update to work with your lab environment
 ############################################################################################################################
 #
-$VIServer = "192.168.10.11" # or "esx01.tataoui.com"
-$VIUsername = 'root'
-$VIPassword = 'VMware123!'
+# Physical ESX Host
+$VIServer = "192.168.10.11" # <-------------------------------- Must update with your lab info
+$VIUsername = 'root' # <--------------------------------------- Must update with your lab info
+$VIPassword = 'VMware123!' # <--------------------------------- Must update with your lab info
 # $vmhost = Get-VMHost -Name $VIServer
 # Specifies whether deployment is on ESXi host or vCenter Server (ESXI or VCENTER)
 # $DeploymentTarget = "ESXI" - Future
@@ -34,15 +35,15 @@ $VIPassword = 'VMware123!'
 # Full Path to HoloRouter ova and generated HoloConsole iso
 $DSFolder = '' # Datastore folder / subfolder name if any - i.e. 'iso\' or '' for datastore root
 # $HoloConsoleISOName = 'Holo-Console-4.5.2.iso'
-$HoloConsoleISOName = 'Holo-Console-5.0.0.iso'
-$HoloConsoleISOPath = 'C:\Users\cdominic\Downloads\holodeck-standard-main\Holo-Console'
+$HoloConsoleISOName = 'Holo-Console-5.0.0.iso' # <---------------------------------------------- Must update with your lab info
+$HoloConsoleISOPath = 'C:\Users\cdominic\Downloads\holodeck-standard-main\Holo-Console' # <----- Must update with your lab info
 $HoloConsoleISO = $HoloConsoleISOPath + '\' + $HoloConsoleISOName
 $HoloRouterOVAName = 'HoloRouter-2.0.ova'
-$HoloRouterOVAPath = 'C:\Users\cdominic\Downloads\holodeck-standard-main\Holo-Router'
+$HoloRouterOVAPath = 'C:\Users\cdominic\Downloads\holodeck-standard-main\Holo-Router' # <------- Must update with your lab info
 $HoloRouterOVA = $HoloRouterOVAPath  + '\' + $HoloRouterOVAName
 $VLCName = 'NOLIC-Holo-Site-1-vcf-ems-public.json'
-$VLCSite1Path = 'C:\Users\cdominic\Downloads\holodeck-standard-main\VLC-Holo-Site-1'
-$VLCSite2Path = 'C:\Users\cdominic\Downloads\holodeck-standard-main\VLC-Holo-Site-2'
+$VLCSite1Path = 'C:\Users\cdominic\Downloads\holodeck-standard-main\VLC-Holo-Site-1' # <-------- Must update with your lab info
+$VLCSite2Path = 'C:\Users\cdominic\Downloads\holodeck-standard-main\VLC-Holo-Site-2' # <-------- Must update with your lab info
 
 $NewHoloConsoleISO = 0 # (0 - Use existing HoloConsole Custom ISO, 1 - Create a fresh HoloConsole Custom ISO, 2 - Create a fresh HolocConsole Custom ISO with Temp cleanup)
 $EnablePreCheck = 0 # (0 - No core binaries verification on Build Host, 1 - Verfiy Holodeck core binaries are accessible on Build Host)
@@ -67,7 +68,7 @@ $HoloDeckSite2PGVLAN = 4095
 #
 # HoloConsole VM settings
 $HoloConsoleVMName = "Holo-A-Console"
-$HoloConsoleDS = "Repository"
+$HoloConsoleDS = "Repository" # <------------------- Must update with your lab info
 $HoloConsoleHW = "vmx-19"
 $HoloConsoleOS = "windows2019srv_64Guest"
 $HoloConsoleCPU = 2
@@ -78,14 +79,14 @@ $HoloConsoleNIC = "VLC-A-PG"
 # HoloRouter OVA settings
 $HoloRouterVMName = "Holo-C-Router"
 $HoloRouterEULA = "1"
-$HoloRouterDS = "Repository"
-$HoloRouterExtNetwork = "VM_Network"
+$HoloRouterDS = "Repository" # <------------------- Must update with your lab info
+$HoloRouterExtNetwork = "VM_Network" # <----------- Must update with your lab info
 $HoloRouterSite1Network = $HoloDeckSite1PortGroup
 $HoloRouterSite2Network = $HoloDeckSite2PortGroup
 $HoloRouterDiskProvision = "thin"
-$HoloRouterExternalIP = "192.168.10.4"
-$HoloRouterExternalSubnet = "255.255.255.0"
-$HoloRouterExternalGW = "192.168.10.2"
+$HoloRouterExternalIP = "192.168.10.4" # <--------- Must update with your lab info
+$HoloRouterExternalSubnet = "255.255.255.0" # <---- Must update with your lab info
+$HoloRouterExternalGW = "192.168.10.2" # <--------- Must update with your lab info
 #
 Function My-Logger {
     param(
@@ -320,7 +321,7 @@ Function DeployHoloConsole {
         # Mount HoloConsole custom ISO to HoloConsole VM
         Get-VM -Name $HoloConsoleVMName | Get-CDDrive | Set-CDDrive -StartConnected $True -IsoPath "[$HoloConsoleDS]$HoloConsoleISOName" -confirm:$false
         # Power on HoloConsole VM
-        My-Logger "Power on HoloConsole VM - HoloConsoleVMName" 1
+        My-Logger "Power on HoloConsole VM - $HoloConsoleVMName" 1
         Start-VM -VM $HoloConsoleVMName
         # Get-VM -Name $HoloConsoleVMName | Get-CDDrive | Set-CDDrive -NoMedia # Remove iso from VM
     } else {
@@ -382,14 +383,24 @@ Function VLC {
         )
         if($VLC -gt 0) {
             $credMyGuestCred = Get-Credential vcf\Administrator
+
             # Copy VLC file from Build Host to VLC folder on HoloConsole VM
             Copy-VMGuestFile -VM $HoloConsoleVMName -LocalToGuest -Source C:\Users\cdominic\Downloads\holodeck-standard-main\VLC-Holo-Site-1\NOLIC-Holo-Site-1-vcf-ems-public-updated.json -Destination C:\VLC\VLC-Holo-Site-1\NOLIC-Holo-Site-1-vcf-ems-public-updated.json -GuestCredential $credMyGuestCred
         } elseif ($VLC -eq 2) {
-            $vm = Get-VM -Name $HoloRouterVMName
-            $script = '"C:\VLC\VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true"'
-            Invoke-VMScript -VM $vm -ScriptText $script -GuestUser 'administrator' - GuestPassword 'VMware123!' -ScriptType Powershell
+            $HoloConsoleVM = Get-VM -Name $HoloConsoleVMName
+            $HCCondition = $HoloConsoleVM.ExtensionData.Guest.ToolsStatus # toolsOk, toolsNotRunning
+            if ($HCCondition -eq 'toolsNotRunning'){
+
+            }
+            #Holo-Site-1-vcf-ems-public.json
+            $script = "C:\VLC\VLC-Holo-Site-1\VLCGui.ps1"
+            #$script = '"C:\VLC\VLC-Holo-Site-1\VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true"'
+            Invoke-VMScript -VM $HoloConsoleVM -ScriptText $script -GuestUser 'vcf\administrator' -GuestPassword 'VMware123!' -ScriptType Powershell
+            Invoke-VMScript -VM $HoloConsoleVM -ScriptText $script -GuestCredential $credMyGuestCred -ScriptType Powershell
             #     (VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true)
         } else {
+            # 01-16-2024 01-18 am power on HoloConsole
+            # 1:59 Done
             # Do nothing
         }
 }
@@ -414,7 +425,7 @@ PreCheck $EnablePreCheck
 CheckDS $EnableCheckDS
 CreateSiteNetwork $EnableSiteNetwork
 UploadHoloConsoleISO $RefreshHoloConsoleISO
-DeployHoloConsole $EnableDeployHoloConsole
+DeployHoloConsole 1 $EnableDeployHoloConsole
 DeployHoloRouter $EnableDeployHoloRouter
 
 ########################################################
