@@ -17,7 +17,6 @@
 # To Do
 #   - Synchronize VLC configuration files between Build Host and HoloConsole VM
 #   - Kickoff VLC process from Build Host or during newly ESX host refresh
-#     (VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true)
 #
 $StartTime = Get-Date
 $verboseLogFile = "VMware Holodeck Deployment.log"
@@ -114,7 +113,7 @@ Function CreateHoloConsoleISO {
         [Parameter(Mandatory=$true)]
         [int]$CreateHoloConsoleISO
         )
-    if(CreateHoloConsoleISO -gt 0) {
+    if($CreateHoloConsoleISO -gt 0) {
         $ExistHCISOCount = 0
         $ExistHCISO = Get-ChildItem -Path $HoloConsoleISOPath -Filter "CustomWindows*.iso"
         foreach( $i in $ExistHCISO) { 
@@ -347,6 +346,8 @@ Function DeployHoloRouter {
        )
     if($DeployHoloRouter -eq 1) {
         My-Logger "Import Holo-Router OVA"
+        My-Logger "Sorry, still work in progress - come back later" 2
+        exit
         # Deploy HoloRouter OVA
         #Start-Process -FilePath "C:\Program Files\VMware\VMware OVF Tool\ovftool.exe "$HoloRouterOVA" "$HoloRouterOVF"" -NoNewWindow -Wait
         Start-Process -FilePath 'C:\Program Files\VMware\VMware OVF Tool\ovftool.exe --noDestinationSSLVerify --acceptAllEulas --disableVerification --name=test --net:ExternalNet="$HoloRouterExtNetwork" --net:Site_1_Net="$HoloRouterSite1Network" --net:Site_2_Net="$HoloRouterSite2Network" --datastore="$HoloRouterDS" --diskMode="$HoloRouterDiskProvision" $HoloRouterOVA "vi://root:VMware123!@esx01.tataoui.com"' -NoNewWindow -Wait
@@ -354,12 +355,6 @@ Function DeployHoloRouter {
         $test = '"C:\Program Files\VMware\VMware OVF Tool\ovftool.exe" --noDestinationSSLVerify --acceptAllEulas --disableVerification --name=test --net:ExternalNet='+"'"+$HoloRouterExtNetwork+"'"+' --net:Site_1_Net='+"'"+$HoloRouterSite1Network+"'"+' --net:Site_2_Net='+"'"+$HoloRouterSite2Network+"'"+'--diskMode='+$HoloRouterDiskProvision+" $HoloRouterOVA vi://root:"+$VIPassword+"@"+$VIServer
         $test
         Start-Process -FilePath $test
-
-        $credMyGuestCred = Get-Credential vcf\Administrator
-        ## copy VLC file from Build Host to VLC folder on HoloConsole VM
-        Copy-VMGuestFile -VM $HoloConsoleVMName -LocalToGuest -Source C:\Users\cdominic\Downloads\holodeck-standard-main\VLC-Holo-Site-1\NOLIC-Holo-Site-1-vcf-ems-public-updated.json -Destination C:\VLC\VLC-Holo-Site-1\NOLIC-Holo-Site-1-vcf-ems-public-updated.json -GuestCredential $credMyGuestCred
-
-
 
         # Power on HoloRouter VM
         My-Logger "Power on HoloRouter VM - $HoloRouterVMName" 1
@@ -378,6 +373,25 @@ Function DeployHoloRouter {
             My-Logger "HoloRouter VM '$HoloRouterVMName' does not seem to exist" 2
         }
     }
+}
+Function VLC {
+       # Deploy VLC update
+       param(
+        [Parameter(Mandatory=$false)]
+        [int]$VLC
+        )
+        if($VLC -gt 0) {
+            $credMyGuestCred = Get-Credential vcf\Administrator
+            # Copy VLC file from Build Host to VLC folder on HoloConsole VM
+            Copy-VMGuestFile -VM $HoloConsoleVMName -LocalToGuest -Source C:\Users\cdominic\Downloads\holodeck-standard-main\VLC-Holo-Site-1\NOLIC-Holo-Site-1-vcf-ems-public-updated.json -Destination C:\VLC\VLC-Holo-Site-1\NOLIC-Holo-Site-1-vcf-ems-public-updated.json -GuestCredential $credMyGuestCred
+        } elseif ($VLC -eq 2) {
+            $vm = Get-VM -Name $HoloRouterVMName
+            $script = '"C:\VLC\VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true"'
+            Invoke-VMScript -VM $vm -ScriptText $script -GuestUser 'administrator' - GuestPassword 'VMware123!' -ScriptType Powershell
+            #     (VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true)
+        } else {
+            # Do nothing
+        }
 }
 # Main
 My-Logger "VMware Holodeck Lab Deployment Started."
