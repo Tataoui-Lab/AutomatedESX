@@ -391,7 +391,7 @@ Function DeployHoloRouter {
     }
 }
 Function VLC {
-       # Deploy VLC update
+       # Upload custom VLC configuration from Build Host, initate VLC bring-up process
        param(
         [Parameter(Mandatory=$true)]
         [int]$VLC
@@ -411,13 +411,11 @@ Function VLC {
             Copy-VMGuestFile -VM $HoloConsoleVMName -LocalToGuest -Source $VLCSite1Path\$VLCHeadlessConfig -Destination 'C:\VLC\VLC-Holo-Site-1\' -GuestUser 'vcf\administrator' -GuestPassword 'VMware123!'
         } elseif ($VLC -eq 2) {
             #Holo-Site-1-vcf-ems-public.json
-            $VLCGUI = "C:\VLC\VLC-Holo-Site-1\VLCGui.ps1"
-            #$script = '"C:\VLC\VLC-Holo-Site-1\VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true"'
+            $VLCGUI = "C:\VLC\VLC-Holo-Site-1\VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true"
             Invoke-VMScript -VM $HoloConsoleVM -ScriptText $VLCGUI -GuestUser 'vcf\administrator' -GuestPassword 'VMware123!' -ScriptType Powershell
-            Invoke-VMScript -VM $HoloConsoleVM -ScriptText $VLCGUI -GuestCredential $credMyGuestCred -ScriptType Powershell
-            #     (VLCGui.ps1 -iniConfigFile .\VLC-HeadLess-Config.ini -isCLI $true)
+            # Invoke-VMScript -VM $HoloConsoleVM -ScriptText $VLCGUI -GuestCredential $credMyGuestCred -ScriptType Powershell
         } else {
-            # 01-16-2024 01-18 am power on HoloConsole
+            # Do nothing
         }
 }
 # Main
@@ -446,7 +444,7 @@ DeployHoloRouter $EnableDeployHoloRouter
 VLC $EnableVLC
 
 ########################################################
-# USe the following for complete tear down
+# Use the following sequence for lab tear down
 # 
 # DeployHoloRouter 2
 # DeployHoloConsole 2
