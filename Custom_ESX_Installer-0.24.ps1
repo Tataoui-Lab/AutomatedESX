@@ -1,7 +1,7 @@
 #
 # Author: Dominic Chan (dominic.chan@tataoui.com)
 # Date: 2021-01-11
-# Last Update: 2024-01-04
+# Last Update: 2024-04-25
 #
 # Description: Auto creation of custom VMware ESX installer
 # The installer incorporate the standard kickstart configuration to automate and streamline ESX install while also
@@ -19,6 +19,7 @@
 # 1. Windows 10 version 2004 (Build 19041) or higher
 # 2. PowerShell version: 5.1.14393.3866
 # 3. WSL 2
+#    - wsl --install (from PowerShell)
 #    - Reboot required afterward
 # 4. Ubuntu 20.04 LTS
 #    a. genisoimage installation require - 'sudo apt-get install genisoimage -y'
@@ -54,12 +55,12 @@ if ($DataSource -eq 'S') {
     $HostGW = '192.168.10.2'
     $HostMgmtVLAN = '10'
     $ESXHostname = 'esxtemp.tataoui.com'
-    $HostDNS1 = '192.168.30.2'
-    $HostDNS2 = '192.168.30.3'
+    $HostDNS1 = '192.168.10.30'
+    $HostDNS2 = '8.8.8.8'
     $LocalUser = 'localadmin'
     $LocalPW = 'VMware123!'
     $HostDOmain = 'tataoui.com'
-    $VCSAIPAddr = '192.168.10.223'
+    $VCSAIPAddr = '192.168.10.25'
     $ListOfPhysicalDrives = 'SATA_SSD-SSD_VM Samsung-SSD_VSAN HITACHI-HDD_VSAN' # vary base on hardware
 } else {
     $ESXHostsParameters = Import-Excel -Path $DataSourcePath -WorksheetName 'ESXHosts'
@@ -67,7 +68,7 @@ if ($DataSource -eq 'S') {
 
 # DO NOT EDIT BEYOND HERE ############################################
 $LogVersion = Get-Date -UFormat "%Y-%m-%d_%H-%M"
-$verboseLogFile = "VMware-Automated-ESX-Installer-$LogVersion.log"
+$verboseLogFile = "VMware-Automated-ESX-USB-Installer-$LogVersion.log"
 $StartTime = Get-Date
 
 Function My-Logger {
@@ -82,7 +83,7 @@ Function My-Logger {
     $logMessage | Out-File -Append -LiteralPath $verboseLogFile
 }
 
-My-Logger "Begin VMware Automated ESX Installer ..."
+My-Logger "Begin VMware Automated ESX USB Installer ..."
 
 if ( -not (Get-Module -ListAvailable Storage)) {Write-Warning "Storage module not found, cannot continue.";break }
 
