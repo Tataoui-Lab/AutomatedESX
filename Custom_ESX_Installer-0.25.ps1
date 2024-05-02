@@ -30,18 +30,79 @@
 # 1. VMware Kickstart Template - KS_Template.cfg
 # 2. VMware Deployment workbook (optional for static configuration)
 #
-# Absolute path to your data sources
-$DataSourcePath = "C:\VMware.xlsx" # Path to Excel Worksheet as the data sources
+Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false | out-null
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser -Force # Bypass
 
-if (!(Test-Path $DataSourcePath))
-{
-    $FileBrowser = New-Object System.Windows.Forms.OpenFileDialog -Property @{ 
-    InitialDirectory = [Environment]::GetFolderPath('Desktop') 
-    Filter = 'SpreadSheet (*.xlsx)|*.xlsx'
+# Absolute path to your data sources
+$ScriptPath = "D:\esx-iso" # Path to this script and custom kickstart template
+$pathToISOFiles = "D:\esx-iso" # Path to VMware vSphere ISOs
+$DataSourcePath = "D:\esx-iso\VMware.xlsx" # Path to Excel Worksheet as the data sources
+$LogVersion = Get-Date -UFormat "%Y-%m-%d_%H-%M"
+$verboseLogFile = "VMware-Automated-ESX-USB-Installer-$LogVersion.log"
+
+#$WSLExist = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+#if ($WSLExist.State -eq 'Enabled') {
+#    My-Logger 'Windows Subsystem for Linux detected...'
+#} else {
+#    My-Logger 'Installing Windows Subsystem for Linux' 1
+#    Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform Microsoft-Windows-Subsystem-Linux  -NoRestart
+#    My-Logger 'Ubuntu is being install.  Please provide an UNIX username and password when prompt...' 1
+#    wsl --set-default-version 2
+#    wsl --install -d Ubuntu
+#    My-Logger 'Windows Subsystem for Linux installed, please re-run this script after the reboot...' 2
+#    Restart-Computer
+#}
+
+# wsl -e bash -c "sudo apt list --installed"
+
+Function My-Logger {
+    [CmdletBinding()]
+    param(
+    [Parameter(Mandatory=$true, Position=0)]
+    [String]$message,
+    [Parameter(Mandatory=$false, Position=1)]
+    [Int]$level
+    )
+    $timeStamp = Get-Date -Format "MM-dd-yyyy_hh:mm:ss"
+    Write-Host -NoNewline -ForegroundColor White "[$timestamp]"
+    if ($level -eq 1) {
+        $msgColor = "Yellow"
+    } elseif ($level -eq 2) {
+        $msgColor = "Red"  
+    } else {
+        $msgColor = "Green"  
     }
-    $null = $FileBrowser.ShowDialog()
-    $DataSourcePath = $FileBrowser.FileName
+    Write-Host -ForegroundColor $msgColor " $message"
+    $logMessage = "[$timeStamp] $message"
+    $logMessage | Out-File -Append -LiteralPath $verboseLogFile   
 }
+function Load-Module ($PS_Module) {
+    # If module is imported say that and do nothing
+    if (Get-Module | Where-Object {$_.Name -eq $PS_Module}) {
+        write-host "Module $PS_Module is already imported."
+    }
+    else {
+        # If module is not imported, but available on disk then import
+        if (Get-Module -ListAvailable | Where-Object {$_.Name -eq $PS_Module}) {
+            Import-Module $PS_Module # -Verbose
+        }
+        else {
+            # If module is not imported, not available on disk, but is in online gallery then install and import
+            if (Find-Module -Name $PS_Module | Where-Object {$_.Name -eq $PS_Module}) {
+                Install-Module -Name $PS_Module -Force -Verbose -Scope CurrentUser
+                Import-Module $PS_Module # -Verbose
+            }
+            else {
+                # If the module is not imported, not available and not in the online gallery then abort
+                write-host "Module $PS_Module not imported, not available and not in an online gallery, exiting."
+                EXIT 1
+            }
+        }
+    }
+}
+
+Load-Module "ImportExcel"
+
 # Static preset is limited to a single ESX host deployment
 $DataSource = Read-Host -Prompt 'Using static preset inputs or import from Excel? (S/E)'
 if ($DataSource -eq 'S') {
@@ -69,28 +130,6 @@ $LogVersion = Get-Date -UFormat "%Y-%m-%d_%H-%M"
 $verboseLogFile = "VMware-Automated-ESX-USB-Installer-$LogVersion.log"
 $StartTime = Get-Date
 
-Function My-Logger {
-    [CmdletBinding()]
-    param(
-    [Parameter(Mandatory=$true, Position=0)]
-    [String]$message,
-    [Parameter(Mandatory=$false, Position=1)]
-    [Int]$level
-    )
-    $timeStamp = Get-Date -Format "MM-dd-yyyy_hh:mm:ss"
-    Write-Host -NoNewline -ForegroundColor White "[$timestamp]"
-    if ($level -eq 1) {
-        $msgColor = "Yellow"
-    } elseif ($level -eq 2) {
-        $msgColor = "Red"  
-    } else {
-        $msgColor = "Green"  
-    }
-    Write-Host -ForegroundColor $msgColor " $message"
-    $logMessage = "[$timeStamp] $message"
-    $logMessage | Out-File -Append -LiteralPath $verboseLogFile   
-}
-
 My-Logger "Begin VMware Automated ESX USB Installer ..."
 
 if ( -not (Get-Module -ListAvailable Storage)) {Write-Warning "Storage module not found, cannot continue.";break }
@@ -102,8 +141,8 @@ $isolinuxTempFile = $pathToISOFiles+'\isolinuxTemp.cfg'
 
 # Determine ESX ISO files/folder location
 if (-not $remember_pathToISOFiles) {
-    if (($pathToISOFiles = Read-Host "Enter ESX ISO folder path (default c:\iso)") -eq '') { 
-        $pathToISOFiles = "C:\iso"; 
+    if (($pathToISOFiles = Read-Host "Enter ESX ISO folder path (default D:\esx-iso)") -eq '') { 
+        $pathToISOFiles = "D:\esx-iso"; 
     } else { 
         $pathToISOFiles 
     }
