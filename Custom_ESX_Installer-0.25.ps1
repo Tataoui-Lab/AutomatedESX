@@ -1,7 +1,7 @@
 #
 # Author: Dominic Chan (dominic.chan@tataoui.com)
 # Date: 2021-01-11
-# Last Update: 2024-04-30
+# Last Update: 2024-05-03
 #
 # Description: Auto creation of custom VMware ESX installer
 # The installer incorporate the standard kickstart configuration to automate and streamline ESX install while also
@@ -18,12 +18,16 @@
 # Powershell environment prerequisites:
 # 1. Windows 10 version 2004 (Build 19041) or higher
 # 2. PowerShell version: 5.1.14393.3866
-# 3. WSL 2
+# 3. WSL 2 (Depreciated)
 #    - wsl --install (from PowerShell)
 #    - Reboot required afterward
-# 4. Ubuntu 20.04 LTS
+# 4. Ubuntu 20.04 LTS (Depreciated)
 #    a. genisoimage installation require - 'sudo apt-get install genisoimage -y'
-# 5. ImportExcel: 7.1.0
+# 5. xorriso for Windows
+#    https://github.com/PeyTy/xorriso-exe-for-windows
+#    Direct download at https://github.com/PeyTy/xorriso-exe-for-windows/archive/master.zip
+#    Place unzip folder (xorriso) within ESX ISO folders (i.e. D:\esx-iso)
+# 6. ImportExcel: 7.1.0
 #    Install-Module -Name ImportExcel -RequiredVersion 7.1.0
 #
 # Include with the script
@@ -32,6 +36,11 @@
 #
 Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false | out-null
 Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser -Force # Bypass
+
+if ( -not (Get-PackageProvider -ListAvailable Nuget)) {
+    Write-Warning "Installing NuGet package manager..."
+    Install-PackageProvider -Name NuGet -Force 
+}
 
 # Absolute path to your data sources
 $ScriptPath = "D:\esx-iso" # Path to this script and custom kickstart template
@@ -125,11 +134,7 @@ if ($DataSource -eq 'S') {
     $ESXHostsParameters = Import-Excel -Path $DataSourcePath -WorksheetName 'ESXHosts'
 }
 
-# DO NOT EDIT BEYOND HERE ############################################
-$LogVersion = Get-Date -UFormat "%Y-%m-%d_%H-%M"
-$verboseLogFile = "VMware-Automated-ESX-USB-Installer-$LogVersion.log"
-$StartTime = Get-Date
-
+# DO NOT EDIT BEYOND HERE ###########################################
 My-Logger "Begin VMware Automated ESX USB Installer ..."
 
 if ( -not (Get-Module -ListAvailable Storage)) {Write-Warning "Storage module not found, cannot continue.";break }
@@ -287,18 +292,26 @@ Set-Content $bootFile -Value $newBootFileContent -Force
 Set-Content $bootFileEFI -Value $newBootFileContent -Force
 
 My-Logger "Preparing ISO parameters ..."
-$ISOFilename = "CustomESXInstaller-"+$($esxiisofile.Name).Substring(25,23)
-$isoSourceFiles = "/mnt/" + $copyDestination.Replace("\", "/").replace(":", "")
+$ISOFilename = "CustomESXInstaller-"+$($esxiisofile.Name).Substring(25,22) # check 22 from 23
+# $isoSourceFiles = "/mnt/" + $copyDestination.Replace("\", "/").replace(":", "")
+$isoSourceFiles = '..\tmp\' + $mountedISO.FileSystemLabel
 # e.g. $isoSourceFiles = "/mnt/d/iso/tmp/ESXI-6.7.0-20181002001-STANDARD"
 $isoDestinationFile = $ISOFilename + ".iso"
-$isoDestinationFilePath = "/mnt/" + $pathToISOFiles.Replace("\", "/").replace(":", "") + "/tmp/" + $isoDestinationFile
+# $isoDestinationFilePath = "/mnt/" + $pathToISOFiles.Replace("\", "/").replace(":", "") + "/tmp/" + $isoDestinationFile
+$isoDestinationFilePath = $pathToISOFiles + "\tmp\" + $isoDestinationFile
 # https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.esxi.upgrade.doc/GUID-C03EADEA-A192-4AB4-9B71-9256A9CB1F9C.html
-$rCommand = "genisoimage -relaxed-filenames -J -R -o $isoDestinationFilePath -b ISOLINUX.BIN -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e EFIBOOT.IMG -no-emul-boot $isoSourceFiles"
+# $rCommand = "genisoimage -relaxed-filenames -J -R -o $isoDestinationFilePath -b ISOLINUX.BIN -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e EFIBOOT.IMG -no-emul-boot $isoSourceFiles"
 # $rCommand = "mkisofs -relaxed-filenames -J -R -o $isoDestinationFilePath -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -b efiboot.img -no-emul-boot $isoSourceFiles"
 # -eltorito-platform efi 
 
-My-Logger "Create custom ESX ISO image on Ubuntu with WSL ..."
-wsl bash -c $rCommand
+My-Logger "Create custom ESX ISO image ..."
+Set-Location -Path $pathToISOFiles\xorriso
+$makeISO = "xorriso.exe -as mkisofs -relaxed-filenames -J -R -o $isoDestinationFilePath -b ISOLINUX.BIN -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot -e EFIBOOT.IMG -no-emul-boot $isoSourceFiles"
+$makeISO | Out-File $pathToISOFiles\makeISO.bat -Encoding ASCII
+Start $pathToISOFiles\makeISO.bat
+
+# My-Logger "Create custom ESX ISO image on Ubuntu with WSL ..."
+# wsl bash -c $rCommand
 # Option to copy to existing datastore
 # wsl bash -c "scp $isoDestinationFilePath root@192.168.2.20:/vmfs/volumes/datastore1"
 
